@@ -381,6 +381,64 @@ impl AttributeValue for String {
     }
 }
 
+impl<'a> AttributeValue for Cow<'a, str> {
+    type AsyncOutput = Self;
+    type State = (crate::renderer::types::Element, Cow<'a, str>);
+    type Cloneable = Self;
+    type CloneableOwned = Arc<str>;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
+    fn to_html(self, key: &str, buf: &mut String) {
+        <&str as AttributeValue>::to_html(&self, key, buf);
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &crate::renderer::types::Element,
+    ) -> Self::State {
+        let (el, _) =
+            <&str as AttributeValue>::hydrate::<FROM_SERVER>(&self, key, el);
+        (el, self)
+    }
+
+    fn build(
+        self,
+        el: &crate::renderer::types::Element,
+        key: &str,
+    ) -> Self::State {
+        Rndr::set_attribute(el, key, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        let (el, prev_value) = state;
+        if self != *prev_value {
+            Rndr::set_attribute(el, key, &self);
+        }
+        *prev_value = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+}
+
 impl AttributeValue for Arc<str> {
     type AsyncOutput = Self;
     type State = (crate::renderer::types::Element, Arc<str>);
